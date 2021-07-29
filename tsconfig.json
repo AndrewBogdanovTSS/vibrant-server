@@ -1,0 +1,10 @@
+{
+  "extends": "@tsconfig/node14/tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": false
+  },
+  "exclude": [
+    "typings/*",
+    "node_modules"
+  ]
+}

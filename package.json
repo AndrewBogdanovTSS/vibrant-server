@@ -2,19 +2,20 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.ts",
   "scripts": {
-    "dev": "nodemon",
-    "dev2": "ts-node ./src/index.ts"
+    "dev": "nodemon"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "color-namer": "^1.4.0",
     "colorthief": "^2.3.2",
+    "cors": "^2.8.5",
     "express": "^4.17.1",
     "got": "^11.8.2",
     "node-fetch": "^2.6.1",
+    "parallel-limiter": "^1.0.5",
     "simple-rate-limiter": "^0.2.3"
   },
   "devDependencies": {

@@ -1,54 +1,44 @@
-import https from 'https'
-import fetch, {Response} from 'node-fetch'
 import got from 'got'
-import limit from 'simple-rate-limiter'
+import colorThief from 'colorthief'
+import colorNamer from 'color-namer'
+import {ParallelLimiter} from 'parallel-limiter'
+import {IDrawing, IDrawingResponse} from './types'
 
-import {IDrawing} from './types'
-import {IncomingMessage} from 'http'
+const limiter: ParallelLimiter = new ParallelLimiter({maxParallel: 80}) // Setting the limit of concurrent requests
+const baseUrl: string = 'https://collectionapi.metmuseum.org/public/collection/v1/objects'
 
-const baseUrl = 'https://collectionapi.metmuseum.org/public/collection/v1'
-const drawings: IDrawing[] = []
-
-const loadDrawing = limit(async (link) => {
-  fetch(link).then(async (res: Response) => {
-    const data: any = await res.json()
-    if (data.primaryImageSmall) {
-      drawings.push({id: data.objectID, image: data.primaryImageSmall})
-      fetch(data.primaryImageSmall).then(async (res) => {
-        const data = await res.blob()
-        console.log('data:', data)
-      })
+const loadDrawing = async (id: string) => {
+  try {
+    const {body}: IDrawingResponse = await got(`${baseUrl}/${id}`, {responseType: 'json'})
+    if (body?.primaryImageSmall) {
+      const image: string = body.primaryImageSmall
+      const title: string = body.title
+      const color: [] = await colorThief.getColor(image)
+      const colorName: string = colorNamer(`rgb(${color.join(',')})`)?.basic[0].name
+      const drawing: IDrawing = {
+        id,
+        title,
+        image,
+        color,
+        colorName
+      }
+      return drawing
     }
-  })
-})
-  .to(1)
-  .per(1000)
-
-async function loadDepartment() {
-  let data: string = ''
-  let obj: {objectIDs: string[]; total: string} = {objectIDs: [], total: '0'}
-  let ids: string[] = []
-  let links: string[] = []
-  // Have to use https module here instead of node-fetch due to an error of API
-  const {body} = await got(`${baseUrl}/objects?departmentIds=11`)
-  console.log('res:', body)
-  /*const req = https.request(`${baseUrl}/objects?departmentIds=11`, (res: IncomingMessage) => {
-    res.on('data', (chunk) => {
-      data += chunk
-    })
-    res.on('end', () => {
-      obj = JSON.parse(data)
-      ids = obj.objectIDs.slice(0, 3)
-      links = ids.map((id: string): string => `${baseUrl}/objects/${id}`)
-      links.forEach((link) => loadDrawing(link))
-    })
-  })
-  req.on('error', (e) => {
-    console.error(`ERROR： ${e}`)
-  })
-  req.end()*/
+  } catch (err) {
+    console.log(err)
+  }
 }
 
-export default () => {
-  loadDepartment()
+export default async () => {
+  try {
+    const {
+      body: {objectIDs}
+    }: IDrawingResponse = await got(`${baseUrl}?departmentIds=11`, {responseType: 'json'})
+    // Getting only 100 items from the collection
+    const items: string[] = objectIDs.slice(0, 100)
+    return await Promise.all(items.map(async (id: string) => await limiter.schedule(() => loadDrawing(id))))
+  } catch (err) {
+    console.error(`ERROR: ${err}`)
+  }
+  return []
 }
